@@ -1,7 +1,7 @@
 # map-QLD
 
 Vite + React + Tailwind frontend for Queensland parcel/layer intersection.
-- Backend API (Render): `VITE_API_BASE` (set in `.env.production`)
+- Backend API (Render): `VITE_API_BASE` (set in `.env.production`) 
 - GitHub Pages base: `/map-QLD/`
 - Exports **KMZ** only
 
