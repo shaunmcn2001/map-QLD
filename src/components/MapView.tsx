@@ -19,16 +19,13 @@ function FitBounds({ parcels, features }: { parcels: any[]; features: any }) {
   const map = useMap();
   useEffect(() => {
     const allCoords: LatLngTuple[] = [];
-
     const pushCoords = (geom: any) => {
       polygonToLatLngs(geom).forEach((ring) => allCoords.push(...ring));
     };
-
     parcels.forEach((p) => pushCoords(p.geometry));
     Object.values(features).forEach((feats: any) =>
       (feats as any[]).forEach((f) => pushCoords(f.geometry))
     );
-
     if (allCoords.length > 0) {
       map.fitBounds(allCoords);
     }
@@ -58,7 +55,7 @@ export default function MapView({ parcels, featuresByLayer }: Props) {
         />
       ))}
       {Object.entries(featuresByLayer).map(([lid, feats], idx) =>
-        feats.map((f, i) => (
+        (feats || []).map((f, i) => (
           <Polygon
             key={`${lid}-${i}`}
             positions={polygonToLatLngs(f.geometry)}

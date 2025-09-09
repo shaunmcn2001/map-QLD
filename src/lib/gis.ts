@@ -1,4 +1,4 @@
-// Real backend integration for GIS helpers
+// Backend integration for GIS helpers (KMZ-only export)
 
 import type { LayerConfig, Parcel, Feature } from '@/types';
 import { fetchWithTimeout, withRetry } from '@/lib/http';

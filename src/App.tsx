@@ -1,4 +1,3 @@
-// src/App.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useToast } from "./components/Toast";
 import LoadingOverlay from "./components/LoadingOverlay";

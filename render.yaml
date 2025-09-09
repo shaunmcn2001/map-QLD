@@ -1,4 +1,3 @@
-# render.yaml
 services:
   - type: static
     name: map-qld-frontend
@@ -6,11 +5,10 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_BASE
-        value: https://qlds-mapper-queensla.onrender.com 
+        value: https://qlds-mapper-queensla.onrender.com
       - key: BUILD_TARGET
         value: render
     routes:
-      # SPA fallback so deep links work:
       - type: rewrite
         source: /.*
         destination: /index.html
