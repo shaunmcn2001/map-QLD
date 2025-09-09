@@ -1,11 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Polygon, useMap } from "react-leaflet";
 
 type LatLngTuple = [number, number];
 
 type Props = {
-  parcels: Array<{ geometry: { type: string; coordinates: any } }>;
-  featuresByLayer: Record<string, Array<{ geometry: any }>>;
+  parcels: Array<{ id: string; geometry: { type: string; coordinates: any } }>;
+  featuresByLayer: Record<string, Array<{ id: string; geometry: any }>>;
 };
 
 function polygonToLatLngs(geom: any): LatLngTuple[][] {
@@ -15,26 +15,29 @@ function polygonToLatLngs(geom: any): LatLngTuple[][] {
   );
 }
 
-function FitBounds({ parcels, features }: { parcels: any[]; features: any }) {
+function FitBounds({ parcels, features, cache }: { parcels: any[]; features: any; cache: Map<string, LatLngTuple[][]> }) {
   const map = useMap();
   useEffect(() => {
     const allCoords: LatLngTuple[] = [];
-    const pushCoords = (geom: any) => {
-      polygonToLatLngs(geom).forEach((ring) => allCoords.push(...ring));
+    const pushCoords = (id: string, geom: any) => {
+      const latlngs = cache.get(id) || polygonToLatLngs(geom);
+      cache.set(id, latlngs);
+      latlngs.forEach((ring) => allCoords.push(...ring));
     };
-    parcels.forEach((p) => pushCoords(p.geometry));
+    parcels.forEach((p) => pushCoords(p.id, p.geometry));
     Object.values(features).forEach((feats: any) =>
-      (feats as any[]).forEach((f) => pushCoords(f.geometry))
+      (feats as any[]).forEach((f) => pushCoords(f.id, f.geometry))
     );
     if (allCoords.length > 0) {
       map.fitBounds(allCoords);
     }
-  }, [map, parcels, features]);
+  }, [map, parcels, features, cache]);
   return null;
 }
 
 export default function MapView({ parcels, featuresByLayer }: Props) {
   const colors = ["#1f77b4", "#2ca02c", "#e76f51", "#9467bd", "#ff7f0e", "#8c564b"];
+  const cache = useRef<Map<string, LatLngTuple[][]>>(new Map());
 
   return (
     <MapContainer
@@ -47,23 +50,31 @@ export default function MapView({ parcels, featuresByLayer }: Props) {
         attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {parcels.map((p, i) => (
-        <Polygon
-          key={`parcel-${i}`}
-          positions={polygonToLatLngs(p.geometry)}
-          pathOptions={{ color: "#000", weight: 2, fillOpacity: 0 }}
-        />
-      ))}
-      {Object.entries(featuresByLayer).map(([lid, feats], idx) =>
-        (feats || []).map((f, i) => (
+      {parcels.map((p) => {
+        const latlngs = cache.current.get(p.id) || polygonToLatLngs(p.geometry);
+        cache.current.set(p.id, latlngs);
+        return (
           <Polygon
-            key={`${lid}-${i}`}
-            positions={polygonToLatLngs(f.geometry)}
-            pathOptions={{ color: colors[idx % colors.length], weight: 1, fillOpacity: 0.3 }}
+            key={`parcel-${p.id}`}
+            positions={latlngs}
+            pathOptions={{ color: "#000", weight: 2, fillOpacity: 0 }}
           />
-        ))
+        );
+      })}
+      {Object.entries(featuresByLayer).map(([lid, feats], idx) =>
+        (feats || []).map((f) => {
+          const latlngs = cache.current.get(f.id) || polygonToLatLngs(f.geometry);
+          cache.current.set(f.id, latlngs);
+          return (
+            <Polygon
+              key={`${lid}-${f.id}`}
+              positions={latlngs}
+              pathOptions={{ color: colors[idx % colors.length], weight: 1, fillOpacity: 0.3 }}
+            />
+          );
+        })
       )}
-      <FitBounds parcels={parcels} features={featuresByLayer} />
+      <FitBounds parcels={parcels} features={featuresByLayer} cache={cache.current} />
     </MapContainer>
   );
 }
