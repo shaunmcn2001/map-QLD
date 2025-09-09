@@ -18,18 +18,27 @@ function toParcel(lotPlan: string, geojson: any): Parcel {
 }
 
 export function normalizeLotPlan(input: string): string[] {
-  const s = (input || "").trim().toUpperCase();
+  const s = (input || "").toUpperCase().replace(/\s+/g, "");
   if (!s) return [];
-  if (s.includes("/")) {
-    const [lot, plan] = s.split("/", 2);
-    return [`${lot.trim().replace(/^L/, "")}/${plan.trim().replace(/\s+/g, "")}`];
+  const noL = s.replace(/^L/, "");
+  if (noL.includes("/")) {
+    const [lot, plan] = noL.split("/", 2);
+    return [`${lot}/${plan}`];
   }
-  const m = s.match(/^L?(\w+?)([A-Z]{1,4}\s*\d{1,7})$/);
-  if (m) return [`${m[1]}/${m[2].replace(/\s+/g, "")}`];
-  return [s];
+  const digits = noL.match(/^\d+/);
+  if (!digits) return [noL];
+  let lot = digits[0];
+  let rest = noL.slice(lot.length);
+  if (/^[A-Z]{1,4}\d{1,7}$/.test(rest)) return [`${lot}/${rest}`];
+  if (rest.length > 0) {
+    lot += rest[0];
+    const plan = rest.slice(1);
+    if (/^[A-Z]{1,4}\d{1,7}$/.test(plan)) return [`${lot}/${plan}`];
+  }
+  return [noL];
 }
 
-export async function resolveParcels(normalized: string[]): Promise<Parcel[]> {
+export async function resolveParcels(normalized: string[], signal?: AbortSignal): Promise<Parcel[]> {
   const parcels: Parcel[] = [];
   for (const lp of normalized) {
     const r = await withRetry(() =>
@@ -37,7 +46,7 @@ export async function resolveParcels(normalized: string[]): Promise<Parcel[]> {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lotplan: lp }),
-        timeoutMs: 40000,
+        signal,
       })
     );
     assertOk(r);
@@ -77,21 +86,21 @@ export async function getLayers(): Promise<LayerConfig[]> {
   }));
 }
 
-export async function intersectLayers(parcel: Parcel, layerIds: string[]): Promise<Record<string, Feature[]>> {
+export async function intersectLayers(parcel: Parcel, layerIds: string[], signal?: AbortSignal): Promise<Record<string, Feature[]>> {
   const r = await withRetry(() =>
     fetchWithTimeout(`${API_BASE}/intersect`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ parcel: parcel.geometry, layer_ids: layerIds }),
-      timeoutMs: 45000,
+      signal,
     })
   );
   assertOk(r);
   const data = await r.json();
   const out: Record<string, Feature[]> = {};
-  for (const layer of (data.layers || [])) {
+  for (const layer of data.layers || []) {
     const feats: Feature[] = [];
-    for (const f of (layer.features || [])) {
+    for (const f of layer.features || []) {
       feats.push({
         id: String(f.attrs?.OBJECTID ?? crypto.randomUUID()),
         geometry: f.geometry,
@@ -105,7 +114,7 @@ export async function intersectLayers(parcel: Parcel, layerIds: string[]): Promi
   return out;
 }
 
-export async function exportData(parcel: Parcel, features: Record<string, Feature[]>) {
+export async function exportKmz(parcel: Parcel, features: Record<string, Feature[]>) {
   const layers = Object.entries(features).map(([id, feats]) => ({
     id,
     label: id,
@@ -117,7 +126,6 @@ export async function exportData(parcel: Parcel, features: Record<string, Featur
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ parcel: parcel.geometry, layers }),
-      timeoutMs: 45000,
     })
   );
   assertOk(r);
