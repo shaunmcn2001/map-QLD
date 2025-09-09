@@ -6,7 +6,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_BASE
-        value: https://qlds-mapper-queensla.onrender.com
+        value: https://qlds-mapper-queensla.onrender.com 
       - key: BUILD_TARGET
         value: render
     routes:
